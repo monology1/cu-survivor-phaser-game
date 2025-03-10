@@ -1,7 +1,27 @@
-import type { NextConfig } from "next";
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+    reactStrictMode: true,
+    webpack: (config: any) => {
+        // Enable importing files from outside src/ directory
+        config.watchOptions = {
+            ignored: /node_modules/,
+            poll: 1000,
+        };
 
-const nextConfig: NextConfig = {
-  /* config options here */
+        // Phaser webpack config
+        config.module.rules.push({
+            test: /\.js$/,
+            include: [/node_modules\/phaser/],
+            use: {
+                loader: 'babel-loader',
+                options: {
+                    presets: ['next/babel'],
+                },
+            },
+        });
+
+        return config;
+    },
 };
 
-export default nextConfig;
+module.exports = nextConfig;
