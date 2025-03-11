@@ -55,7 +55,10 @@
       ],
       "@/utils/*": [
         "./app/utils/*"
-      ]
+      ],
+      "@/store/*": [
+        "./app/store/*"
+      ],
     }
   },
   "include": [
