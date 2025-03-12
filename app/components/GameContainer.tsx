@@ -2,14 +2,14 @@
 
 import { useEffect, useRef } from 'react';
 import { useGameStore } from '@/store/gameStore';
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 
 // Import game scenes (adjust paths as necessary)
 import BootScene from '@/game/scenes/BootScene';
-// import PreloadScene from '@/game/scenes/PreloadScene';
-// import MainMenuScene from '@/game/scenes/MainMenuScene';
-// import GameScene from '@/game/scenes/GameScene';
-// import UpgradeScene from '@/game/scenes/UpgradeScene';
+import PreloadScene from '@/game/scenes/PreloadScene';
+import MainMenuScene from '@/game/scenes/MainMenuScene';
+import GameScene from '@/game/scenes/GameScene';
+import UpgradeScene from '@/game/scenes/UpgradeScene';
 
 export default function GameContainer() {
     const gameRef = useRef<HTMLDivElement>(null);
@@ -35,10 +35,10 @@ export default function GameContainer() {
             },
             scene: [
                 BootScene,
-                // PreloadScene,
-                // MainMenuScene,
-                // GameScene,
-                // UpgradeScene
+                PreloadScene,
+                MainMenuScene,
+                GameScene,
+                UpgradeScene
             ],
             scale: {
                 mode: Phaser.Scale.FIT,

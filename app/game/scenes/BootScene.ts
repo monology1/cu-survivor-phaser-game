@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { create } from 'zustand';
 
 export default class BootScene extends Phaser.Scene {
