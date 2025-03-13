@@ -164,15 +164,15 @@ export default class GameScene extends Phaser.Scene {
         if (activeEnemies.length === 0) return;
 
         activeEnemies.sort((a, b) =>
-            Phaser.Math.Distance.Between(this.player.x, this.player.y, a.x, a.y) -
-            Phaser.Math.Distance.Between(this.player.x, this.player.y, b.x, b.y)
+            Phaser.Math.Distance.Between(this.player!.x, this.player!.y, (a as Phaser.GameObjects.Sprite).x, (a as Phaser.GameObjects.Sprite).y) -
+            Phaser.Math.Distance.Between(this.player!.x, this.player!.y, (b as Phaser.GameObjects.Sprite).x, (b as Phaser.GameObjects.Sprite).y)
         );
 
-        this.fireProjectile(activeEnemies[0]);
+        this.fireProjectile(activeEnemies[0] as Phaser.Types.Physics.Arcade.GameObjectWithBody);
         this.player.setData('lastFired', time);
     }
 
-    private fireProjectile(target: Phaser.GameObjects.GameObject) {
+    private fireProjectile(target: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile) {
         if (!this.player || !this.projectiles) return;
 
         const projectile = this.projectiles.get(this.player.x, this.player.y, 'projectile-basic');
@@ -181,7 +181,8 @@ export default class GameScene extends Phaser.Scene {
         const playerDamage = this.player.getData('damage');
         const weaponType = this.player.getData('weapons')[0];
         const weaponConfig = WEAPON_TYPES[weaponType];
-        const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, target.x, target.y);
+        const targetSprite = target as Phaser.GameObjects.Sprite;
+        const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, targetSprite.x, targetSprite.y);
 
         projectile.setActive(true).setVisible(true);
         projectile.setData({ damage: playerDamage * weaponConfig.damage, range: weaponConfig.range });
@@ -250,11 +251,11 @@ export default class GameScene extends Phaser.Scene {
         ][edge];
     }
 
-    private handleProjectileEnemyCollision(projectile: Phaser.GameObjects.GameObject, enemy: Phaser.GameObjects.GameObject) {
-        projectile.setActive(false).setVisible(false);
-        const damage = projectile.getData('damage');
-        const newHealth = enemy.getData('health') - damage;
-        enemy.setData('health', newHealth);
+    private handleProjectileEnemyCollision(projectile: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile, enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile) {
+        (projectile as Phaser.GameObjects.Sprite).setActive(false).setVisible(false);
+        const damage = (projectile as Phaser.GameObjects.Sprite).getData('damage');
+        const newHealth = (enemy as Phaser.GameObjects.Sprite).getData('health') - damage;
+        (enemy as Phaser.GameObjects.Sprite).setData('health', newHealth);
 
         this.sound.play('hit', { volume: 0.3 });
         if (newHealth <= 0) {
@@ -264,12 +265,12 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
-    private handlePlayerEnemyCollision(player: Phaser.GameObjects.GameObject, enemy: Phaser.GameObjects.GameObject) {
+    private handlePlayerEnemyCollision(player: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile, enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile) {
         if (this.invincibilityTimer > 0) return;
 
-        const damage = enemy.getData('damage');
-        const newHealth = player.getData('health') - damage;
-        player.setData('health', newHealth);
+        const damage = (enemy as Phaser.GameObjects.Sprite).getData('damage');
+        const newHealth = (player as Phaser.GameObjects.Sprite).getData('health') - damage;
+        (player as Phaser.GameObjects.Sprite).setData('health', newHealth);
         this.invincibilityTimer = 500; // 0.5 seconds invincibility
 
         this.sound.play('player-damage', { volume: 0.5 });
@@ -280,22 +281,26 @@ export default class GameScene extends Phaser.Scene {
             this.gameOver();
         } else {
             this.tweens.add({ targets: player, alpha: 0.5, duration: 100, yoyo: true, repeat: 2 });
-            const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
-            this.physics.velocityFromRotation(angle, 300, player.body.velocity);
+            const angle = Phaser.Math.Angle.Between((enemy as Phaser.GameObjects.Sprite).x, (enemy as Phaser.GameObjects.Sprite).y, (player as Phaser.GameObjects.Sprite).x, (player as Phaser.GameObjects.Sprite).y);
+            const knockbackVelocity = new Phaser.Math.Vector2();
+            this.physics.velocityFromRotation(angle, 300, knockbackVelocity);
+            const playerBody = (player as Phaser.GameObjects.Sprite).body!;
+            playerBody.velocity.x = knockbackVelocity.x;
+            playerBody.velocity.y = knockbackVelocity.y;
         }
     }
 
-    private killEnemy(enemy: Phaser.GameObjects.GameObject) {
-        this.score += enemy.getData('points');
+    private killEnemy(enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile) {
+        this.score += (enemy as Phaser.GameObjects.Sprite).getData('points');
         this.updateScoreText();
         // this.sound.play('enemy-death', { volume: 0.4 });
 
         this.tweens.add({
             targets: enemy,
             alpha: 0,
-            scale: enemy.scale * 1.5, // Fixed scale syntax
+            scale: (enemy as Phaser.GameObjects.Sprite).scale * 1.5, // Fixed scale syntax
             duration: 200,
-            onComplete: () => enemy.setActive(false).setVisible(false)
+            onComplete: () => (enemy as Phaser.GameObjects.Sprite).setActive(false).setVisible(false)
         });
 
         const kills = (this.registry.get('kills') || 0) + 1;
