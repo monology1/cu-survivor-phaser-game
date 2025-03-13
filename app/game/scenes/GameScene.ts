@@ -493,15 +493,34 @@ export default class GameScene extends Phaser.Scene {
     }
 
     private handleProjectileEnemyCollision(
-        projectile: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
-        enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile
+        projectile: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile,
+        enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile
     ) {
-        // Deactivate projectile
-        const projectileSprite = projectile as Phaser.GameObjects.Sprite;
+        // Handle cases where we might get a Body instead of a GameObject
+        let projectileSprite: Phaser.GameObjects.Sprite;
+        let enemySprite: Phaser.GameObjects.Sprite;
+
+        // Get the actual sprite from the body if needed
+        if (projectile instanceof Phaser.Physics.Arcade.Body) {
+            projectileSprite = projectile.gameObject as Phaser.GameObjects.Sprite;
+        } else if (projectile instanceof Phaser.Physics.Arcade.StaticBody) {
+            projectileSprite = projectile.gameObject as Phaser.GameObjects.Sprite;
+        } else {
+            projectileSprite = projectile as Phaser.GameObjects.Sprite;
+        }
+
+        if (enemy instanceof Phaser.Physics.Arcade.Body) {
+            enemySprite = enemy.gameObject as Phaser.GameObjects.Sprite;
+        } else if (enemy instanceof Phaser.Physics.Arcade.StaticBody) {
+            enemySprite = enemy.gameObject as Phaser.GameObjects.Sprite;
+        } else {
+            enemySprite = enemy as Phaser.GameObjects.Sprite;
+        }
+
+        // Now proceed with the collision handling using the sprite references
         projectileSprite.setActive(false).setVisible(false);
 
         // Deal damage to enemy
-        const enemySprite = enemy as Phaser.GameObjects.Sprite;
         const damage = projectileSprite.getData('damage') || 10;
         const health = enemySprite.getData('health') || 50;
         const newHealth = health - damage;
@@ -510,18 +529,18 @@ export default class GameScene extends Phaser.Scene {
 
         // Play hit sound
         try {
-            this.sound.play('hit', {volume: 0.3});
+            this.sound.play('hit', { volume: 0.3 });
         } catch (error) {
             console.warn('Could not play hit sound:', error);
         }
 
         // Check if enemy is killed
         if (newHealth <= 0) {
-            this.killEnemy(enemy);
+            this.killEnemy(enemySprite);
         } else {
             // Flash enemy to show damage
             this.tweens.add({
-                targets: enemy,
+                targets: enemySprite,
                 alpha: 0.5,
                 duration: 50,
                 yoyo: true
@@ -530,15 +549,34 @@ export default class GameScene extends Phaser.Scene {
     }
 
     private handlePlayerEnemyCollision(
-        player: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
-        enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile
+        player: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile,
+        enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile
     ) {
         // Skip if player is invincible
         if (this.invincibilityTimer > 0) return;
 
+        // Handle cases where we might get a Body instead of a GameObject
+        let playerSprite: Phaser.GameObjects.Sprite;
+        let enemySprite: Phaser.GameObjects.Sprite;
+
+        // Get the actual sprite from the body if needed
+        if (player instanceof Phaser.Physics.Arcade.Body) {
+            playerSprite = player.gameObject as Phaser.GameObjects.Sprite;
+        } else if (player instanceof Phaser.Physics.Arcade.StaticBody) {
+            playerSprite = player.gameObject as Phaser.GameObjects.Sprite;
+        } else {
+            playerSprite = player as Phaser.GameObjects.Sprite;
+        }
+
+        if (enemy instanceof Phaser.Physics.Arcade.Body) {
+            enemySprite = enemy.gameObject as Phaser.GameObjects.Sprite;
+        } else if (enemy instanceof Phaser.Physics.Arcade.StaticBody) {
+            enemySprite = enemy.gameObject as Phaser.GameObjects.Sprite;
+        } else {
+            enemySprite = enemy as Phaser.GameObjects.Sprite;
+        }
+
         // Apply damage to player
-        const playerSprite = player as Phaser.GameObjects.Sprite;
-        const enemySprite = enemy as Phaser.GameObjects.Sprite;
         const damage = enemySprite.getData('damage') || 10;
         const health = playerSprite.getData('health') || 100;
         const newHealth = health - damage;
@@ -550,7 +588,7 @@ export default class GameScene extends Phaser.Scene {
 
         // Visual and audio feedback
         try {
-            this.sound.play('player-damage', {volume: 0.5});
+            this.sound.play('player-damage', { volume: 0.5 });
         } catch (error) {
             console.warn('Could not play player-damage sound:', error);
         }
@@ -564,7 +602,7 @@ export default class GameScene extends Phaser.Scene {
         } else {
             // Visual feedback and knockback
             this.tweens.add({
-                targets: player,
+                targets: playerSprite,
                 alpha: 0.5,
                 duration: 100,
                 yoyo: true,
@@ -583,13 +621,26 @@ export default class GameScene extends Phaser.Scene {
 
             // Apply to player body
             const playerBody = playerSprite.body as Phaser.Physics.Arcade.Body;
-            playerBody.velocity.x = knockbackVelocity.x;
-            playerBody.velocity.y = knockbackVelocity.y;
+            if (playerBody) {
+                playerBody.velocity.x = knockbackVelocity.x;
+                playerBody.velocity.y = knockbackVelocity.y;
+            }
         }
     }
 
-    private killEnemy(enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile) {
-        const enemySprite = enemy as Phaser.GameObjects.Sprite;
+    private killEnemy(
+        enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile | Phaser.GameObjects.Sprite
+    ) {
+        // Handle cases where we might get different types
+        let enemySprite: Phaser.GameObjects.Sprite;
+
+        if (enemy instanceof Phaser.Physics.Arcade.Body) {
+            enemySprite = enemy.gameObject as Phaser.GameObjects.Sprite;
+        } else if (enemy instanceof Phaser.Physics.Arcade.StaticBody) {
+            enemySprite = enemy.gameObject as Phaser.GameObjects.Sprite;
+        } else {
+            enemySprite = enemy as Phaser.GameObjects.Sprite;
+        }
 
         // Add score
         const points = enemySprite.getData('points') || 10;
@@ -598,14 +649,14 @@ export default class GameScene extends Phaser.Scene {
 
         // Play death sound
         try {
-            this.sound.play('enemy-death', {volume: 0.4});
+            this.sound.play('enemy-death', { volume: 0.4 });
         } catch (error) {
             console.warn('Could not play enemy-death sound:', error);
         }
 
         // Death animation
         this.tweens.add({
-            targets: enemy,
+            targets: enemySprite,
             alpha: 0,
             scale: enemySprite.scale * 1.5,
             duration: 200,
