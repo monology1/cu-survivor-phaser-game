@@ -4,10 +4,9 @@ import { useEffect, useRef } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import * as Phaser from 'phaser';
 
-// Import game scenes (adjust paths as necessary)
+// Import game scenes
 import BootScene from '@/game/scenes/BootScene';
 import PreloadScene from '@/game/scenes/PreloadScene';
-import MainMenuScene from '@/game/scenes/MainMenuScene';
 import GameScene from '@/game/scenes/GameScene';
 import UpgradeScene from '@/game/scenes/UpgradeScene';
 
@@ -29,14 +28,13 @@ export default function GameContainer() {
             physics: {
                 default: 'arcade',
                 arcade: {
-                    gravity: { x: 0, y: 0 }, // Fixed: Added x property to gravity
+                    gravity: { x: 0, y: 0 },
                     debug: process.env.NODE_ENV === 'development'
                 }
             },
             scene: [
                 BootScene,
                 PreloadScene,
-                MainMenuScene,
                 GameScene,
                 UpgradeScene
             ],

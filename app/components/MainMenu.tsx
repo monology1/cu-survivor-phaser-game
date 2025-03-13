@@ -1,79 +1,100 @@
 'use client';
-
-import { useState } from 'react';
 import { useGameStore } from '@/store/gameStore';
+import CharacterSelect from './CharacterSelect';
+import PowerupsScreen from './PowerupsScreen';
+import OptionsScreen from './OptionsScreen';
+import AchievementsScreen from './AchievementsScreen';
+import CollectionScreen from './CollectionScreen';
+import CreditsScreen from './CreditsScreen';
 
 export default function MainMenu() {
-    const { startGame, highScores } = useGameStore();
-    const [selectedClass, setSelectedClass] = useState('warrior');
+    const { ui, showScreen, coins } = useGameStore();
 
-    const handleStartGame = () => {
-        startGame(selectedClass);
+    // Helper function to render the correct screen
+    const renderSubScreen = () => {
+        if (ui.showCharacterSelect) return <CharacterSelect />;
+        if (ui.showPowerups) return <PowerupsScreen />;
+        if (ui.showOptions) return <OptionsScreen />;
+        if (ui.showAchievements) return <AchievementsScreen />;
+        if (ui.showCollection) return <CollectionScreen />;
+        if (ui.showCredits) return <CreditsScreen />;
+
+        // Default main menu screen
+        return (
+            <div className="relative flex flex-col items-center">
+                <div className="absolute top-0 right-4 flex items-center">
+                    <img src="/assets/items/coin_01.png" alt="Coins" className="w-8 h-8 mr-2" />
+                    <span className="text-yellow-400 text-xl">{coins}</span>
+                </div>
+
+                {/*<h1 className="text-6xl font-bold mb-16 text-center text-yellow-500 drop-shadow-lg">*/}
+                {/*    CU<br/>SURVIVORS*/}
+                {/*</h1>*/}
+
+                <div className="flex flex-col gap-3 w-64">
+                    <button
+                        className="bg-green-600 hover:bg-green-700 transition-colors text-white text-xl font-bold py-2 px-4 rounded"
+                        onClick={() => showScreen('showCharacterSelect')}
+                    >
+                        Play
+                    </button>
+
+                    <button
+                        className="bg-blue-600 hover:bg-blue-700 transition-colors text-white text-xl font-bold py-2 px-4 rounded"
+                        onClick={() => showScreen('showOptions')}
+                    >
+                        Options
+                    </button>
+
+                    <button
+                        className="bg-blue-600 hover:bg-blue-700 transition-colors text-white text-xl font-bold py-2 px-4 rounded"
+                        onClick={() => showScreen('showPowerups')}
+                    >
+                        Powerups
+                    </button>
+
+                    <button
+                        className="bg-blue-600 hover:bg-blue-700 transition-colors text-white text-xl font-bold py-2 px-4 rounded"
+                        onClick={() => showScreen('showAchievements')}
+                    >
+                        Achievements
+                    </button>
+
+                    <button
+                        className="bg-blue-600 hover:bg-blue-700 transition-colors text-white text-xl font-bold py-2 px-4 rounded"
+                        onClick={() => showScreen('showCollection')}
+                    >
+                        Collection
+                    </button>
+
+                    <button
+                        className="bg-blue-600 hover:bg-blue-700 transition-colors text-white text-xl font-bold py-2 px-4 rounded"
+                        onClick={() => showScreen('showCredits')}
+                    >
+                        Credits
+                    </button>
+
+                    {/*<button*/}
+                    {/*    className="bg-yellow-600 hover:bg-yellow-700 transition-colors text-white text-xl font-bold py-2 px-4 rounded mt-4"*/}
+                    {/*>*/}
+                    {/*    Get full game*/}
+                    {/*</button>*/}
+                </div>
+
+                <div className="mt-8 text-gray-400 text-sm">
+                    v0.1.0 - Embedded Programming Project
+                </div>
+            </div>
+        );
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
-            <h1 className="text-5xl font-bold mb-10">Vampire Brotato</h1>
-
-            <div className="max-w-md w-full p-6 bg-gray-800 rounded-lg shadow-lg mb-6">
-                <h2 className="text-2xl font-bold mb-4">Select Character</h2>
-
-                <div className="mb-6">
-                    <div
-                        className={`p-4 border rounded-lg mb-2 cursor-pointer ${selectedClass === 'warrior' ? 'border-blue-500 bg-blue-900' : 'border-gray-700 bg-gray-700'}`}
-                        onClick={() => setSelectedClass('warrior')}
-                    >
-                        <div className="flex items-center">
-                            <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center text-3xl">
-                                ⚔️
-                            </div>
-                            <div className="ml-4">
-                                <h3 className="text-xl font-bold">Warrior</h3>
-                                <p className="text-gray-300">Balanced fighter with strong melee attacks</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* More character options would go here */}
-                </div>
-
-                <button
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded transition duration-200"
-                    onClick={handleStartGame}
-                >
-                    Start Game
-                </button>
-            </div>
-
-            <div className="max-w-md w-full p-6 bg-gray-800 rounded-lg shadow-lg">
-                <h2 className="text-2xl font-bold mb-4">High Scores</h2>
-
-                {highScores.length > 0 ? (
-                    <div className="overflow-hidden rounded-lg border border-gray-700">
-                        <table className="min-w-full divide-y divide-gray-700">
-                            <thead className="bg-gray-700">
-                            <tr>
-                                <th className="px-4 py-2 text-left text-sm font-medium text-gray-300">Rank</th>
-                                <th className="px-4 py-2 text-left text-sm font-medium text-gray-300">Class</th>
-                                <th className="px-4 py-2 text-left text-sm font-medium text-gray-300">Score</th>
-                                <th className="px-4 py-2 text-left text-sm font-medium text-gray-300">Wave</th>
-                            </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-700">
-                            {highScores.slice(0, 5).map((score, index) => (
-                                <tr key={index}>
-                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">{index + 1}</td>
-                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">{score.playerClass}</td>
-                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">{score.score}</td>
-                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">{score.wave}</td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <p className="text-gray-400 text-center py-4">No scores yet. Start playing!</p>
-                )}
+        <div
+            className="flex min-h-screen w-full items-center justify-center bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: 'url(/assets/ui/main-menu-background.png)' }}
+        >
+            <div className="max-w-5xl w-full h-[600px] flex items-center justify-center p-4">
+                {renderSubScreen()}
             </div>
         </div>
     );

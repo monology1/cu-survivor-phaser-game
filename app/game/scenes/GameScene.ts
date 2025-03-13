@@ -1,15 +1,20 @@
 import * as Phaser from 'phaser';
-import {ENEMY_TYPES, WEAPON_TYPES} from '../config';
+import { ENEMY_TYPES, WEAPON_TYPES, WAVE_CONFIGS } from '../config';
 
 // Define interfaces for better type safety
 interface PlayerData {
     health: number;
     maxHealth: number;
+    recovery: number;
+    evasion: number;
+    armor: number;
+    power: number;
+    critical: number;
     speed: number;
-    damage: number;
-    attackSpeed: number;
-    critChance: number;
-    range: number;
+    projectiles: number;
+    level: number;
+    experience: number;
+    experienceToNextLevel: number;
     weapons: string[];
     lastFired: number;
 }
@@ -21,6 +26,8 @@ interface EnemyData {
     damage: number;
     speed: number;
     points: number;
+    experienceValue: number;
+    coinValue: number;
 }
 
 interface ProjectileData {
@@ -29,13 +36,19 @@ interface ProjectileData {
     startX?: number;
     startY?: number;
     distance?: number;
+    weaponType: string;
+    critical: boolean;
 }
 
 export default class GameScene extends Phaser.Scene {
     // Game objects
     private player?: Phaser.Physics.Arcade.Sprite;
+    private playerRange?: Phaser.GameObjects.Graphics;
     private enemies?: Phaser.Physics.Arcade.Group;
     private projectiles?: Phaser.Physics.Arcade.Group;
+    private coins?: Phaser.Physics.Arcade.Group;
+    private experience?: Phaser.Physics.Arcade.Group;
+    private damageNumbers?: Phaser.GameObjects.Group;
 
     // Game state
     private score = 0;
@@ -44,12 +57,19 @@ export default class GameScene extends Phaser.Scene {
     private waveDuration = 60000; // 60 seconds
     private gameStartTime = 0;
     private invincibilityTimer = 0; // For invincibility frames
+    private lastSpawnTime = 0;
+    private enemiesSpawned = 0;
+    private enemiesKilled = 0;
+    private currentWaveConfig: any;
 
     // UI elements
     private scoreText?: Phaser.GameObjects.Text;
     private waveText?: Phaser.GameObjects.Text;
     private timerText?: Phaser.GameObjects.Text;
     private healthBar?: Phaser.GameObjects.Graphics;
+    private experienceBar?: Phaser.GameObjects.Graphics;
+    private weaponIcons: Phaser.GameObjects.Sprite[] = [];
+    private coinCounter?: Phaser.GameObjects.Text;
 
     constructor() {
         super('GameScene');
@@ -58,8 +78,12 @@ export default class GameScene extends Phaser.Scene {
     create() {
         // Initialize game objects
         this.createPlayer();
+        this.createPlayerRange();
         this.createEnemies();
         this.createProjectiles();
+        this.createCoins();
+        this.createExperience();
+        this.createDamageNumbers();
 
         // Create UI
         this.createUI();
@@ -81,6 +105,7 @@ export default class GameScene extends Phaser.Scene {
         if (!this.player) return;
 
         this.updatePlayer(delta);
+        this.updatePlayerRange();
 
         // Update wave timer and invincibility
         this.waveTimer += delta;
@@ -126,10 +151,14 @@ export default class GameScene extends Phaser.Scene {
     }
 
     private createPlayer() {
+        // Get player data from store
+        const store = this.game.registry.get('zustandStore');
+        const characterId = store?.getState().selectedCharacter || 'bill';
+
         this.player = this.physics.add.sprite(
             this.cameras.main.width / 2,
             this.cameras.main.height / 2,
-            'player'
+            `character-${characterId}`
         );
 
         if (!this.player) return;
@@ -137,16 +166,30 @@ export default class GameScene extends Phaser.Scene {
         this.player.setCollideWorldBounds(true);
         this.player.setDepth(10);
 
-        // Set player data using a structured object for better type safety
-        const playerData: PlayerData = {
+        // Get stored player stats
+        const playerStats = store?.getState().currentRun.playerStats || {
             health: 100,
             maxHealth: 100,
-            speed: 200,
-            damage: 10,
-            attackSpeed: 1,
-            critChance: 0.05,
-            range: 1,
-            weapons: ['BASIC'],
+            recovery: 0,
+            evasion: 0,
+            armor: 0,
+            power: 100,
+            critical: 0,
+            speed: 100,
+            projectiles: 1,
+            level: 1,
+            experience: 0,
+            experienceToNextLevel: 100
+        };
+
+        // Get stored weapons
+        const weapons = store?.getState().currentRun.weapons || [{ type: 'BASIC', level: 1 }];
+        const weaponTypes = weapons.map((w: { type: any; }) => w.type);
+
+        // Set player data using a structured object for better type safety
+        const playerData: PlayerData = {
+            ...playerStats,
+            weapons: weaponTypes,
             lastFired: 0
         };
 
@@ -154,6 +197,27 @@ export default class GameScene extends Phaser.Scene {
         Object.entries(playerData).forEach(([key, value]) => {
             this.player?.setData(key, value);
         });
+    }
+
+    private createPlayerRange() {
+        // Create a circle graphic to show player's attack range
+        this.playerRange = this.add.graphics();
+        this.updatePlayerRange();
+    }
+
+    private updatePlayerRange() {
+        if (!this.player || !this.playerRange) return;
+
+        const range = this.player.getData('range') || 150;
+
+        // Clear previous graphics
+        this.playerRange.clear();
+
+        // Draw range circle
+        this.playerRange.lineStyle(2, 0x9966ff, 0.7);
+        this.playerRange.fillStyle(0x9966ff, 0.1);
+        this.playerRange.strokeCircle(this.player.x, this.player.y, range);
+        this.playerRange.fillCircle(this.player.x, this.player.y, range);
     }
 
     private createEnemies() {
@@ -170,6 +234,24 @@ export default class GameScene extends Phaser.Scene {
             maxSize: 100,
             runChildUpdate: false // We'll handle updates manually for more control
         });
+    }
+
+    private createCoins() {
+        this.coins = this.physics.add.group({
+            classType: Phaser.Physics.Arcade.Sprite,
+            maxSize: 50
+        });
+    }
+
+    private createExperience() {
+        this.experience = this.physics.add.group({
+            classType: Phaser.Physics.Arcade.Sprite,
+            maxSize: 50
+        });
+    }
+
+    private createDamageNumbers() {
+        this.damageNumbers = this.add.group();
     }
 
     private createUI() {
@@ -193,14 +275,55 @@ export default class GameScene extends Phaser.Scene {
             {font: '24px Arial', color: '#ffffff'}
         ).setOrigin(0.5, 0);
 
+        // Health bar
         this.healthBar = this.add.graphics();
         this.updateHealthBar();
+
+        // Experience bar
+        this.experienceBar = this.add.graphics();
+        this.updateExperienceBar();
+
+        // Coin counter (top right)
+        this.coinCounter = this.add.text(
+            this.cameras.main.width - 16,
+            50,
+            '0',
+            {font: '24px Arial', color: '#ffdd00'}
+        ).setOrigin(1, 0);
+
+        // Add coin icon
+        this.add.sprite(this.cameras.main.width - 48, 50, 'coin')
+            .setOrigin(1, 0)
+            .setScale(0.5);
+
+        // Create weapon icons at the top
+        this.createWeaponIcons();
+    }
+
+    private createWeaponIcons() {
+        // Clear existing icons
+        this.weaponIcons.forEach(icon => icon.destroy());
+        this.weaponIcons = [];
+
+        // Get weapons from player data
+        const weapons = this.player?.getData('weapons') || ['BASIC'];
+
+        // Create icons
+        weapons.forEach((weaponType: string, index: number) => {
+            const icon = this.add.sprite(
+                100 + (index * 60),
+                50,
+                `weapon-${weaponType.toLowerCase()}`
+            );
+            icon.setScale(2);
+            this.weaponIcons.push(icon);
+        });
     }
 
     private setupCollisions() {
-        if (!this.player || !this.enemies || !this.projectiles) return;
+        if (!this.player || !this.enemies || !this.projectiles || !this.coins || !this.experience) return;
 
-        // Set up collision detection
+        // Set up collision detection for combat
         this.physics.add.overlap(
             this.projectiles,
             this.enemies,
@@ -216,16 +339,39 @@ export default class GameScene extends Phaser.Scene {
             undefined,
             this
         );
+
+        // Set up collision detection for pickups
+        this.physics.add.overlap(
+            this.player,
+            this.coins,
+            this.collectCoin,
+            undefined,
+            this
+        );
+
+        this.physics.add.overlap(
+            this.player,
+            this.experience,
+            this.collectExperience,
+            undefined,
+            this
+        );
     }
 
     private startGame() {
         this.score = 0;
         this.waveNumber = 1;
         this.waveTimer = 0;
+        this.enemiesSpawned = 0;
+        this.enemiesKilled = 0;
+
+        // Get the current wave configuration
+        this.currentWaveConfig = WAVE_CONFIGS[this.waveNumber - 1] || WAVE_CONFIGS[0];
+        this.waveDuration = this.currentWaveConfig.duration;
+
         this.showWaveAnnouncement();
 
-        // Reset registry values
-        this.registry.set('kills', 0);
+        // Reset registry values for enemy spawning
         this.registry.set('lastEnemySpawn', 0);
     }
 
@@ -260,7 +406,10 @@ export default class GameScene extends Phaser.Scene {
         }
 
         // Handle auto-attack
-        this.autoAttack(delta);
+        const autoAttack = this.game.registry.get('zustandStore')?.getState().settings.autoAttack ?? true;
+        if (autoAttack) {
+            this.autoAttack(delta);
+        }
     }
 
     private autoAttack(delta: number) {
@@ -298,24 +447,39 @@ export default class GameScene extends Phaser.Scene {
             return distA - distB;
         });
 
-        // Fire at nearest enemy
-        this.fireProjectile(activeEnemies[0] as Phaser.Types.Physics.Arcade.GameObjectWithBody);
+        // Fire projectiles based on player's projectile count
+        const projectileCount = this.player.getData('projectiles') || 1;
+        const targets = activeEnemies.slice(0, projectileCount);
+
+        targets.forEach(target => {
+            this.fireProjectile(target as Phaser.Types.Physics.Arcade.GameObjectWithBody);
+        });
+
         this.player.setData('lastFired', time);
     }
 
     private fireProjectile(target: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile) {
         if (!this.player || !this.projectiles) return;
 
-        // Get projectile from pool
-        const projectile = this.projectiles.get(this.player.x, this.player.y, 'projectile-basic') as Phaser.Physics.Arcade.Sprite;
-        if (!projectile) return;
-
-        // Set up projectile properties
-        const playerDamage = this.player.getData('damage') || 10;
+        // Get player data
+        const playerDamage = this.player.getData('power') || 10;
         const weaponType = this.player.getData('weapons')[0] || 'BASIC';
+        const critChance = this.player.getData('critical') / 100 || 0.05;
         const weaponConfig = WEAPON_TYPES[weaponType];
 
         if (!weaponConfig) return;
+
+        // Calculate if this is a critical hit
+        const isCritical = Math.random() < critChance;
+
+        // Get projectile from pool
+        const projectile = this.projectiles.get(
+            this.player.x,
+            this.player.y,
+            weaponConfig.projectileSprite
+        ) as Phaser.Physics.Arcade.Sprite;
+
+        if (!projectile) return;
 
         const targetSprite = target as Phaser.GameObjects.Sprite;
         const angle = Phaser.Math.Angle.Between(
@@ -325,14 +489,20 @@ export default class GameScene extends Phaser.Scene {
 
         // Activate and set up projectile
         projectile.setActive(true).setVisible(true);
+        projectile.setScale(weaponConfig.projectileScale);
+
+        // Calculate damage with critical bonus
+        const damage = playerDamage * weaponConfig.damage * (isCritical ? 2 : 1);
 
         // Store data for projectile
         const projectileData: ProjectileData = {
-            damage: playerDamage * weaponConfig.damage,
+            damage: damage,
             range: weaponConfig.range,
             startX: this.player.x,
             startY: this.player.y,
-            distance: 0
+            distance: 0,
+            weaponType: weaponType,
+            critical: isCritical
         };
 
         // Set all projectile properties
@@ -340,17 +510,22 @@ export default class GameScene extends Phaser.Scene {
             projectile.setData(key, value);
         });
 
+        // If this is a critical hit, tint the projectile
+        if (isCritical) {
+            projectile.setTint(0xff0000);
+        }
+
         // Set velocity and rotation
         this.physics.velocityFromRotation(
             angle,
             weaponConfig.projectileSpeed,
-            projectile?.body?.velocity
+            projectile.body?.velocity
         );
         projectile.setRotation(angle);
 
         // Play sound effect
         try {
-            this.sound.play('shoot', {volume: 0.5});
+            this.sound.play('shoot', {volume: 0.3});
         } catch (error) {
             console.warn('Could not play shoot sound:', error);
         }
@@ -384,14 +559,24 @@ export default class GameScene extends Phaser.Scene {
     }
 
     private updateEnemySpawning(time: number) {
-        // Calculate spawn interval based on wave number
-        const spawnInterval = Math.max(500, 2000 - this.waveNumber * 100);
-        const lastSpawnTime = this.registry.get('lastEnemySpawn') || 0;
+        // Get current wave config
+        const waveConfig = this.currentWaveConfig;
+        if (!waveConfig) return;
 
-        // Spawn enemy if enough time has passed
-        if (time > lastSpawnTime + spawnInterval) {
+        // Calculate spawn interval
+        const spawnInterval = waveConfig.spawnInterval;
+
+        // Spawn enemy if enough time has passed and haven't reached total enemies for wave
+        if (time > this.lastSpawnTime + spawnInterval && this.enemiesSpawned < waveConfig.totalEnemies) {
             this.spawnEnemy();
-            this.registry.set('lastEnemySpawn', time);
+            this.lastSpawnTime = time;
+            this.enemiesSpawned++;
+        }
+
+        // Check if boss should spawn
+        if (waveConfig.bossWave && this.enemiesKilled >= Math.floor(waveConfig.totalEnemies * 0.75) && !this.registry.get('bossSpawned')) {
+            this.spawnBoss();
+            this.registry.set('bossSpawned', true);
         }
     }
 
@@ -407,13 +592,9 @@ export default class GameScene extends Phaser.Scene {
 
         if (!enemy) return;
 
-        // Determine available enemy types based on wave number
-        const availableTypes = [
-            'BASIC',
-            ...(this.waveNumber >= 2 ? ['FAST'] : []),
-            ...(this.waveNumber >= 3 ? ['TANK'] : []),
-            ...(this.waveNumber >= 4 ? ['RANGED'] : [])
-        ];
+        // Determine available enemy types based on wave config
+        const waveConfig = this.currentWaveConfig;
+        const availableTypes = waveConfig.enemyTypes;
 
         // Select random enemy type
         const enemyType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
@@ -426,18 +607,27 @@ export default class GameScene extends Phaser.Scene {
 
         // Set up enemy appearance
         enemy.setActive(true).setVisible(true);
-        enemy.setTexture(`enemy-${enemyType.toLowerCase()}`);
+        enemy.setTexture(enemyConfig.sprite);
         enemy.setScale(enemyConfig.scale);
         enemy.setTint(enemyConfig.tint);
+
+        // Calculate values
+        const healthValue = Math.floor(enemyConfig.health * waveScaleFactor);
+        const damage = Math.floor(enemyConfig.damage * waveScaleFactor);
+        const points = Math.floor(enemyConfig.points * waveScaleFactor);
+        const experienceValue = Math.floor(5 + (this.waveNumber * 2));
+        const coinValue = Math.random() < 0.2 ? 1 : 0; // 20% chance to drop a coin
 
         // Create enemy data object
         const enemyData: EnemyData = {
             type: enemyType,
-            health: enemyConfig.health * waveScaleFactor,
-            maxHealth: enemyConfig.health * waveScaleFactor,
-            damage: enemyConfig.damage * waveScaleFactor,
+            health: healthValue,
+            maxHealth: healthValue,
+            damage: damage,
             speed: enemyConfig.speed,
-            points: enemyConfig.points * waveScaleFactor
+            points: points,
+            experienceValue: experienceValue,
+            coinValue: coinValue
         };
 
         // Set all enemy properties
@@ -447,6 +637,118 @@ export default class GameScene extends Phaser.Scene {
 
         // Set up enemy update behavior
         enemy.update = () => this.updateEnemy(enemy);
+    }
+
+    private spawnBoss() {
+        if (!this.enemies) return;
+
+        // Get current wave config
+        const waveConfig = this.currentWaveConfig;
+        if (!waveConfig || !waveConfig.bossType) return;
+
+        // Get boss type
+        const bossType = waveConfig.bossType;
+        const bossConfig = ENEMY_TYPES[bossType];
+
+        if (!bossConfig) return;
+
+        // Spawn boss in the center of the screen, offset from player
+        const playerX = this.player?.x || this.cameras.main.width / 2;
+        const playerY = this.player?.y || this.cameras.main.height / 2;
+
+        // Spawn boss at some distance from player
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 300;
+        const spawnX = playerX + Math.cos(angle) * distance;
+        const spawnY = playerY + Math.sin(angle) * distance;
+
+        const boss = this.enemies.get(spawnX, spawnY) as Phaser.Physics.Arcade.Sprite;
+
+        if (!boss) return;
+
+        // Scale difficulty based on wave number
+        const waveScaleFactor = 1 + (this.waveNumber - 1) * 0.2;
+
+        // Set up boss appearance
+        boss.setActive(true).setVisible(true);
+        boss.setTexture(bossConfig.sprite);
+        boss.setScale(bossConfig.scale * 1.5); // Make boss bigger
+        boss.setTint(bossConfig.tint);
+
+        // Calculate boss stats
+        const healthValue = Math.floor(bossConfig.health * waveScaleFactor);
+        const damage = Math.floor(bossConfig.damage * waveScaleFactor);
+        const points = Math.floor(bossConfig.points * waveScaleFactor);
+        const experienceValue = Math.floor(50 + (this.waveNumber * 10));
+        const coinValue = 5; // Guaranteed coins from boss
+
+        // Create boss data
+        const bossData: EnemyData = {
+            type: bossType,
+            health: healthValue,
+            maxHealth: healthValue,
+            damage: damage,
+            speed: bossConfig.speed * 0.8, // Slightly slower
+            points: points,
+            experienceValue: experienceValue,
+            coinValue: coinValue
+        };
+
+        // Set boss properties
+        Object.entries(bossData).forEach(([key, value]) => {
+            boss.setData(key, value);
+        });
+
+        // Add special 'boss' flag
+        boss.setData('isBoss', true);
+
+        // Set up boss update behavior
+        boss.update = () => this.updateEnemy(boss);
+
+        // Show boss announcement
+        this.showBossAnnouncement();
+
+        // Play boss music or sound effect
+        try {
+            this.sound.play('boss-appear', { volume: 0.5 });
+        } catch (error) {
+            console.warn('Could not play boss sound:', error);
+        }
+    }
+
+    private showBossAnnouncement() {
+        // Create boss announcement text
+        const bossText = this.add.text(
+            this.cameras.main.width / 2,
+            this.cameras.main.height / 2,
+            'BOSS INCOMING!',
+            {
+                font: 'bold 48px Arial',
+                color: '#ff0000'
+            }
+        ).setOrigin(0.5).setDepth(100);
+
+        // Add shaking effect
+        this.tweens.add({
+            targets: bossText,
+            x: { from: bossText.x - 5, to: bossText.x + 5 },
+            ease: 'Linear',
+            duration: 50,
+            repeat: 10,
+            yoyo: true,
+            onComplete: () => {
+                // Fade out
+                this.tweens.add({
+                    targets: bossText,
+                    alpha: 0,
+                    duration: 500,
+                    onComplete: () => bossText.destroy()
+                });
+            }
+        });
+
+        // Camera shake
+        this.cameras.main.shake(500, 0.01);
     }
 
     private updateEnemy(enemy: Phaser.Physics.Arcade.Sprite) {
@@ -460,10 +762,79 @@ export default class GameScene extends Phaser.Scene {
 
         // Set velocity toward player
         const speed = enemy.getData('speed') || 100;
-        this.physics.velocityFromRotation(angle, speed, enemy?.body?.velocity);
+        this.physics.velocityFromRotation(angle, speed, enemy.body?.velocity);
 
         // Rotate enemy to face player
-        enemy.setRotation(angle + Math.PI / 2);
+        const autoFace = this.game.registry.get('zustandStore')?.getState().settings.autoFaceClosestEnemy ?? true;
+        if (autoFace) {
+            enemy.setRotation(angle + Math.PI / 2);
+        }
+
+        // Boss special behavior (if applicable)
+        if (enemy.getData('isBoss') && Math.random() < 0.01) {
+            this.bossSummonMinions(enemy);
+        }
+    }
+
+    private bossSummonMinions(boss: Phaser.Physics.Arcade.Sprite) {
+        if (!this.enemies) return;
+
+        // Summon 3 minions around the boss
+        for (let i = 0; i < 3; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 50 + Math.random() * 50;
+            const spawnX = boss.x + Math.cos(angle) * distance;
+            const spawnY = boss.y + Math.sin(angle) * distance;
+
+            const minion = this.enemies.get(spawnX, spawnY) as Phaser.Physics.Arcade.Sprite;
+
+            if (!minion) continue;
+
+            // Setup minion (use FAST enemy type for minions)
+            const minionConfig = ENEMY_TYPES['FAST'];
+
+            // Set up minion appearance
+            minion.setActive(true).setVisible(true);
+            minion.setTexture(minionConfig.sprite);
+            minion.setScale(minionConfig.scale * 0.8); // Smaller minions
+            minion.setTint(boss.tintTopLeft); // Same color as boss
+
+            // Set minion properties
+            const minionData: EnemyData = {
+                type: 'FAST',
+                health: minionConfig.health / 2,
+                maxHealth: minionConfig.health / 2,
+                damage: minionConfig.damage / 2,
+                speed: minionConfig.speed * 1.2, // Faster minions
+                points: minionConfig.points / 2,
+                experienceValue: 2,
+                coinValue: 0
+            };
+
+            Object.entries(minionData).forEach(([key, value]) => {
+                minion.setData(key, value);
+            });
+
+            // Set update behavior
+            minion.update = () => this.updateEnemy(minion);
+        }
+
+        // Visual effect for summoning
+        const summonCircle = this.add.circle(boss.x, boss.y, 50, 0xffa500, 0.5);
+        this.tweens.add({
+            targets: summonCircle,
+            radius: 100,
+            alpha: 0,
+            duration: 500,
+            onComplete: () => summonCircle.destroy()
+        });
+
+        // Sound effect
+        try {
+            this.sound.play('summon', { volume: 0.4 });
+        } catch (error) {
+            console.warn('Could not play summon sound:', error);
+        }
     }
 
     private getRandomSpawnPosition() {
@@ -524,12 +895,18 @@ export default class GameScene extends Phaser.Scene {
         const damage = projectileSprite.getData('damage') || 10;
         const health = enemySprite.getData('health') || 50;
         const newHealth = health - damage;
+        const isCritical = projectileSprite.getData('critical') || false;
 
         enemySprite.setData('health', newHealth);
 
+        // Show damage number
+        if (this.game.registry.get('zustandStore')?.getState().settings.showDamageNumbers) {
+            this.showDamageNumber(enemySprite.x, enemySprite.y, damage, isCritical);
+        }
+
         // Play hit sound
         try {
-            this.sound.play('hit', { volume: 0.3 });
+            this.sound.play('hit', { volume: 0.2 });
         } catch (error) {
             console.warn('Could not play hit sound:', error);
         }
@@ -548,6 +925,36 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    private showDamageNumber(x: number, y: number, damage: number, isCritical: boolean = false) {
+        // Format damage number
+        const roundedDamage = Math.floor(damage);
+
+        // Create text with appropriate style based on critical hit
+        const text = this.add.text(
+            x,
+            y - 20,
+            roundedDamage.toString(),
+            {
+                font: isCritical ? 'bold 24px Arial' : '20px Arial',
+                color: isCritical ? '#ff0000' : '#ffffff'
+            }
+        );
+
+        // Add to group for management
+        if (this.damageNumbers) {
+            this.damageNumbers.add(text);
+        }
+
+        // Animate the damage number
+        this.tweens.add({
+            targets: text,
+            y: text.y - 30,
+            alpha: 0,
+            duration: 1000,
+            onComplete: () => text.destroy()
+        });
+    }
+
     private handlePlayerEnemyCollision(
         player: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile,
         enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile
@@ -556,7 +963,7 @@ export default class GameScene extends Phaser.Scene {
         if (this.invincibilityTimer > 0) return;
 
         // Handle cases where we might get a Body instead of a GameObject
-        let playerSprite: Phaser.GameObjects.Sprite;
+        let playerSprite: any;
         let enemySprite: Phaser.GameObjects.Sprite;
 
         // Get the actual sprite from the body if needed
@@ -578,8 +985,30 @@ export default class GameScene extends Phaser.Scene {
 
         // Apply damage to player
         const damage = enemySprite.getData('damage') || 10;
+        const armor = playerSprite.getData('armor') || 0;
+        const evasion = playerSprite.getData('evasion') || 0;
+
+        // Check for evasion (dodge)
+        if (Math.random() * 100 < evasion) {
+            // Dodged the attack!
+            this.showDamageNumber(playerSprite.x, playerSprite.y - 20, 0, false);
+
+            // Play dodge sound
+            try {
+                this.sound.play('dodge', { volume: 0.4 });
+            } catch (error) {
+                console.warn('Could not play dodge sound:', error);
+            }
+
+            return;
+        }
+
+        // Calculate actual damage after armor reduction
+        const armorReduction = damage * (armor / 100);
+        const actualDamage = Math.max(1, damage - armorReduction);
+
         const health = playerSprite.getData('health') || 100;
-        const newHealth = health - damage;
+        const newHealth = health - actualDamage;
 
         playerSprite.setData('health', newHealth);
 
@@ -620,11 +1049,8 @@ export default class GameScene extends Phaser.Scene {
             this.physics.velocityFromRotation(angle, 300, knockbackVelocity);
 
             // Apply to player body
-            const playerBody = playerSprite.body as Phaser.Physics.Arcade.Body;
-            if (playerBody) {
-                playerBody.velocity.x = knockbackVelocity.x;
-                playerBody.velocity.y = knockbackVelocity.y;
-            }
+            playerSprite.body.velocity.x = knockbackVelocity.x;
+            playerSprite.body.velocity.y = knockbackVelocity.y;
         }
     }
 
@@ -642,16 +1068,36 @@ export default class GameScene extends Phaser.Scene {
             enemySprite = enemy as Phaser.GameObjects.Sprite;
         }
 
-        // Add score
+        // Get enemy data
         const points = enemySprite.getData('points') || 10;
+        const experienceValue = enemySprite.getData('experienceValue') || 5;
+        const coinValue = enemySprite.getData('coinValue') || 0;
+        const isBoss = enemySprite.getData('isBoss') || false;
+
+        // Add score
         this.score += points;
         this.updateScoreText();
 
-        // Play death sound
+        // Increment kill count
+        this.enemiesKilled++;
+
+        // Drop experience
+        this.dropExperience(enemySprite.x, enemySprite.y, experienceValue);
+
+        // Drop coins if applicable
+        if (coinValue > 0) {
+            this.dropCoin(enemySprite.x, enemySprite.y, coinValue);
+        }
+
+        // Play appropriate death sound
         try {
-            this.sound.play('enemy-death', { volume: 0.4 });
+            if (isBoss) {
+                this.sound.play('boss-death', { volume: 0.6 });
+            } else {
+                this.sound.play('enemy-death', { volume: 0.3 });
+            }
         } catch (error) {
-            console.warn('Could not play enemy-death sound:', error);
+            console.warn('Could not play death sound:', error);
         }
 
         // Death animation
@@ -663,9 +1109,134 @@ export default class GameScene extends Phaser.Scene {
             onComplete: () => enemySprite.setActive(false).setVisible(false)
         });
 
-        // Update kill count
-        const kills = (this.registry.get('kills') || 0) + 1;
-        this.registry.set('kills', kills);
+        // Update store with kill
+        const store = this.game.registry.get('zustandStore');
+        if (store) {
+            const currentKills = store.getState().currentRun.kills || 0;
+            store.setState((state: { currentRun: any; }) => ({
+                currentRun: {
+                    ...state.currentRun,
+                    kills: currentKills + 1
+                }
+            }));
+        }
+    }
+
+    private dropExperience(x: number, y: number, value: number) {
+        if (!this.experience) return;
+
+        // Get experience gem from pool
+        const expGem = this.experience.get(x, y, 'experience') as Phaser.Physics.Arcade.Sprite;
+
+        if (!expGem) return;
+
+        // Set up experience gem
+        expGem.setActive(true).setVisible(true);
+        expGem.setScale(0.8);
+        expGem.setData('value', value);
+
+        // Add a small random offset so multiple drops don't stack exactly
+        expGem.x += Phaser.Math.Between(-10, 10);
+        expGem.y += Phaser.Math.Between(-10, 10);
+
+        // Add a slight pulsing animation
+        this.tweens.add({
+            targets: expGem,
+            scale: 1,
+            duration: 500,
+            yoyo: true,
+            repeat: -1
+        });
+    }
+
+    private dropCoin(x: number, y: number, value: number) {
+        if (!this.coins) return;
+
+        // Get coin from pool
+        const coin = this.coins.get(x, y, 'coin') as Phaser.Physics.Arcade.Sprite;
+
+        if (!coin) return;
+
+        // Set up coin
+        coin.setActive(true).setVisible(true);
+        coin.setScale(0.8);
+        coin.setData('value', value);
+
+        // Add a small random offset
+        coin.x += Phaser.Math.Between(-10, 10);
+        coin.y += Phaser.Math.Between(-10, 10);
+
+        // Add a slight spinning animation
+        this.tweens.add({
+            targets: coin,
+            angle: 360,
+            duration: 1000,
+            repeat: -1
+        });
+    }
+
+    private collectExperience(
+        player: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
+        expGem: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile
+    ) {
+        // Get the sprite references
+        const expSprite = expGem as Phaser.GameObjects.Sprite;
+
+        // Get the value
+        const value = expSprite.getData('value') || 5;
+
+        // Deactivate the gem
+        expSprite.setActive(false).setVisible(false);
+
+        // Update experience in the store
+        const store = this.game.registry.get('zustandStore');
+        if (store) {
+            store.getState().gainExperience(value);
+        }
+
+        // Update local experience bar
+        this.updateExperienceBar();
+
+        // Play sound
+        try {
+            this.sound.play('exp-pickup', { volume: 0.2 });
+        } catch (error) {
+            console.warn('Could not play experience pickup sound:', error);
+        }
+    }
+
+    private collectCoin(
+        player: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
+        coin: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile
+    ) {
+        // Get the sprite reference
+        const coinSprite = coin as Phaser.GameObjects.Sprite;
+
+        // Get the value
+        const value = coinSprite.getData('value') || 1;
+
+        // Deactivate the coin
+        coinSprite.setActive(false).setVisible(false);
+
+        // Update coins in the store
+        const store = this.game.registry.get('zustandStore');
+        if (store) {
+            store.getState().collectCoin(value);
+        }
+
+        // Update coin counter
+        if (this.coinCounter) {
+            const store = this.game.registry.get('zustandStore');
+            const collectedCoins = store?.getState().currentRun.coinsCollected || 0;
+            this.coinCounter.setText(collectedCoins.toString());
+        }
+
+        // Play sound
+        try {
+            this.sound.play('coin-pickup', { volume: 0.3 });
+        } catch (error) {
+            console.warn('Could not play coin pickup sound:', error);
+        }
     }
 
     private updateHealthBar() {
@@ -688,6 +1259,27 @@ export default class GameScene extends Phaser.Scene {
         this.healthBar.fillRect(10, 50, 200 * percentage, 20);
     }
 
+    private updateExperienceBar() {
+        if (!this.experienceBar) return;
+
+        // Get experience values from store
+        const store = this.game.registry.get('zustandStore');
+        const currentExp = store?.getState().currentRun.playerStats.experience || 0;
+        const expToNextLevel = store?.getState().currentRun.playerStats.experienceToNextLevel || 100;
+        const percentage = Math.min(1, currentExp / expToNextLevel);
+
+        // Clear and redraw experience bar
+        this.experienceBar.clear();
+
+        // Background
+        this.experienceBar.fillStyle(0x000000, 0.5);
+        this.experienceBar.fillRect(10, 80, 200, 10);
+
+        // Experience
+        this.experienceBar.fillStyle(0x00ffff, 1);
+        this.experienceBar.fillRect(10, 80, 200 * percentage, 10);
+    }
+
     private updateScoreText() {
         if (this.scoreText) {
             this.scoreText.setText(`Score: ${this.score}`);
@@ -697,7 +1289,7 @@ export default class GameScene extends Phaser.Scene {
     private updateTimerText() {
         if (this.timerText) {
             const remainingTime = Math.ceil((this.waveDuration - this.waveTimer) / 1000);
-            this.timerText.setText(remainingTime.toString());
+            this.timerText.setText(remainingTime.toString().padStart(2, '0'));
         }
     }
 
@@ -728,6 +1320,13 @@ export default class GameScene extends Phaser.Scene {
         // Increment wave counter and reset timer
         this.waveNumber++;
         this.waveTimer = 0;
+        this.enemiesSpawned = 0;
+        this.enemiesKilled = 0;
+        this.registry.set('bossSpawned', false);
+
+        // Get the new wave configuration
+        this.currentWaveConfig = WAVE_CONFIGS[this.waveNumber - 1] || WAVE_CONFIGS[WAVE_CONFIGS.length - 1];
+        this.waveDuration = this.currentWaveConfig.duration;
 
         // Update UI
         if (this.waveText) {
@@ -735,9 +1334,9 @@ export default class GameScene extends Phaser.Scene {
         }
 
         // Update game state in store
-        const zustandStore = this.game.registry.get('zustandStore');
-        if (zustandStore) {
-            zustandStore.getState().completeWave();
+        const store = this.game.registry.get('zustandStore');
+        if (store) {
+            store.getState().completeWave();
         }
 
         // Pause this scene
@@ -753,18 +1352,9 @@ export default class GameScene extends Phaser.Scene {
 
     private gameOver() {
         // Update game state in store
-        const zustandStore = this.game.registry.get('zustandStore');
-        if (zustandStore) {
-            const elapsedTime = Math.floor((this.time.now - this.gameStartTime) / 1000);
-            const kills = this.registry.get('kills') || 0;
-
-            zustandStore.getState().updateRunState({
-                score: this.score,
-                kills,
-                elapsedTime
-            });
-
-            zustandStore.getState().gameOver(this.score);
+        const store = this.game.registry.get('zustandStore');
+        if (store) {
+            store.getState().gameOver();
         }
 
         // Pause this scene
@@ -782,12 +1372,16 @@ export default class GameScene extends Phaser.Scene {
         if (!this.player) return;
 
         // Update game state in store
-        const zustandStore = this.game.registry.get('zustandStore');
-        if (zustandStore) {
-            zustandStore.getState().updateRunState({
+        const store = this.game.registry.get('zustandStore');
+        if (store) {
+            store.getState().updateRunState({
                 score: this.score,
                 wave: this.waveNumber,
-                playerHealth: this.player.getData('health'),
+                timeElapsed: Math.floor((this.time.now - this.gameStartTime) / 1000)
+            });
+
+            store.getState().updatePlayerStats({
+                health: this.player.getData('health'),
                 maxHealth: this.player.getData('maxHealth')
             });
         }

@@ -10,15 +10,20 @@ export default class MainMenuScene extends Phaser.Scene {
             .setOrigin(0);
 
         // Title
-        this.add.text(
-            this.cameras.main.width / 2,
-            100,
-            'VAMPIRE BROTATO',
-            {
-                font: 'bold 48px Arial',
-                color: '#ffffff'
-            }
-        ).setOrigin(0.5);
+        // this.add.text(
+        //     this.cameras.main.width / 2,
+        //     100,
+        //     'VAMPIRE BROTATO',
+        //     {
+        //         font: 'bold 48px Arial',
+        //         color: '#ffffff'
+        //     }
+        // ).setOrigin(0.5);
+
+        this.add.image(0, 0, 'menu-background')
+            .setOrigin(0)
+            .setDisplaySize(this.cameras.main.width, this.cameras.main.height);
+
 
         // Start button
         const startButton = this.add.text(
@@ -110,14 +115,17 @@ export default class MainMenuScene extends Phaser.Scene {
             }
         ).setOrigin(1, 1);
 
-        // Play background music
-        if (this.sound.get('main-menu')) {
-            const music = this.sound.get('main-menu');
-            if (!music.isPlaying) {
-                music.play({ loop: true, volume: 0.5 });
+        try {
+            const menuMusic = this.sound.get('main-menu');
+            if (menuMusic) {
+                if (!menuMusic.isPlaying) {
+                    menuMusic.play({ loop: true, volume: 0.5 });
+                }
+            } else if (this.sound.add) {
+                this.sound.add('main-menu', { loop: true, volume: 0.5 }).play();
             }
-        } else {
-            this.sound.add('main-menu', { loop: true, volume: 0.5 }).play();
+        } catch (error) {
+            console.warn('Could not play menu music:', error);
         }
     }
 }

@@ -3,6 +3,8 @@
 import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useGameStore } from '@/store/gameStore';
+
+// Import components
 import MainMenu from '@/components/MainMenu';
 import UpgradeMenu from '@/components/UpgradeMenu';
 import GameOverScreen from '@/components/GameOverScreen';
@@ -14,21 +16,48 @@ const GameContainer = dynamic(
 );
 
 export default function Home() {
-  const { ui } = useGameStore();
+    const { ui } = useGameStore();
 
-  return (
-      <main className="flex min-h-screen flex-col items-center justify-between">
-        {ui.showMenu ? (
-            <MainMenu />
-        ) : (
-            <div className="relative w-full h-screen">
-              <GameContainer />
+    // Determine if we should be showing a menu or the game
+    const showingMenu = ui.showMainMenu || ui.showCharacterSelect ||
+        ui.showPowerups || ui.showOptions ||
+        ui.showAchievements || ui.showCollection ||
+        ui.showCredits;
 
-              {/* Overlay UIs */}
-              {ui.showUpgrades && <UpgradeMenu />}
-              {ui.showGameOver && <GameOverScreen />}
-            </div>
-        )}
-      </main>
-  );
+    // Setup keyboard listeners for fullscreen toggle
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'F11' || (e.key === 'f' && e.ctrlKey)) {
+                e.preventDefault();
+
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen();
+                } else {
+                    document.exitFullscreen();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, []);
+
+    return (
+        <main className="flex min-h-screen flex-col items-center justify-between">
+            {showingMenu ? (
+                <MainMenu />
+            ) : (
+                <div className="relative w-full h-screen">
+                    <GameContainer />
+
+                    {/* Overlay UIs */}
+                    {ui.showUpgrades && <UpgradeMenu />}
+                    {ui.showGameOver && <GameOverScreen />}
+                </div>
+            )}
+        </main>
+    );
 }

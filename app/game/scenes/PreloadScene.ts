@@ -1,66 +1,132 @@
 import * as Phaser from 'phaser';
+import { CHARACTER_TYPES, ENEMY_TYPES, WEAPON_TYPES, POWERUP_TYPES, UPGRADE_TYPES } from '../config';
 
 export default class PreloadScene extends Phaser.Scene {
     private loadingBar?: Phaser.GameObjects.Graphics;
     private progressBar?: Phaser.GameObjects.Graphics;
+    private loadingText?: Phaser.GameObjects.Text;
 
     constructor() {
         super('PreloadScene');
     }
 
     preload() {
-        this.createLoadingBar();
+        this.createLoadingUI();
 
         // Listen for loading progress
         this.load.on('progress', (value: number) => {
             this.updateProgressBar(value);
         });
 
-        // Load players
-        this.load.image('player', 'assets/players/player.png');
-        // Load enemies
-        this.load.image('enemy-basic', 'assets/enemies/enemy-basic.png');
-        this.load.image('enemy-fast', 'assets/enemy-fast.png');
-        this.load.image('enemy-tank', 'assets/enemy-tank.png');
-        this.load.image('enemy-ranged', 'assets/enemy-ranged.png');
-        this.load.image('projectile', 'assets/weapons/projectile-basic.png');
+        // Load background assets
+        this.load.image('menu-background', '/assets/ui/main-menu-background.png');
+        this.load.image('game-background', '/assets/maps/game-background.png');
 
-        // Load sounds
-        this.load.audio('shoot', 'assets/audio/weapons/shoot.wav');
-        this.load.audio('hit', 'assets/audio/weapons/hit21.mp3.flac');
-        this.load.audio('player-damage', 'assets/sounds/player-damage.wav');
-        // this.load.audio('enemy-death', 'assets/sounds/enemy-death.wav');
-        this.load.audio('level-up', 'assets/sounds/level-up.wav');
-        this.load.audio('game-over', 'assets/sounds/game-over.wav');
-        this.load.audio('music-battle', 'assets/audio/background/musicBattle.mp3');
-        // Load bg sounds
-        this.load.audio('main-menu', '/assets/audio/background/mainMenu.mp3');
-        this.load.audio('music-battle', '/assets/audio/background/musicBattle.mp3');
+        // Load UI assets
+        this.load.image('coin', '/assets/items/coin_01.png');
+        this.load.image('experience', '/assets/items/experience.png');
+        this.load.image('health-bar', '/assets/ui/health-bar.png');
+        this.load.image('exp-bar', '/assets/ui/exp-bar.png');
+        this.load.image('button', '/assets/ui/button.png');
+
+        // Load player characters
+        Object.values(CHARACTER_TYPES).forEach(character => {
+            this.load.image(`character-${character.id}`, `/assets/characters/${character.id}.png`);
+        });
+
+        // Load enemies
+        Object.values(ENEMY_TYPES).forEach(enemy => {
+            this.load.image(enemy.sprite, `/assets/enemies/${enemy.sprite.replace('enemy-', '')}.png`);
+        });
+
+        // Load weapons and projectiles
+        Object.values(WEAPON_TYPES).forEach(weapon => {
+            this.load.image(weapon.sprite, `/assets/weapons/${weapon.sprite.replace('weapon-', '')}.png`);
+            this.load.image(weapon.projectileSprite, `/assets/weapons/${weapon.projectileSprite.replace('projectile-', '')}.png`);
+        });
+
+        // Load powerups
+        Object.values(POWERUP_TYPES).forEach(powerup => {
+            this.load.image(`powerup-${powerup.id}`, `/assets/powerups/${powerup.sprite}.png`);
+        });
+
+        // Load upgrades
+        Object.values(UPGRADE_TYPES).forEach(upgrade => {
+            this.load.image(`upgrade-${upgrade.id}`, `/assets/upgrades/${upgrade.sprite}.png`);
+        });
+
+        // Load sound effects
+        this.loadSoundEffects();
+
+        // Load music
+        this.loadMusic();
 
         // Listen for loading completion
         this.load.on('complete', () => {
             this.load.off('progress');
             this.load.off('complete');
-        });
+            this.loadingText?.setText('Loading complete!');
 
-        // Load game assets
-        this.loadAssets();
+            // Check the UI state to determine where to go next
+            const zustandStore = this.game.registry.get('zustandStore');
+            if (zustandStore) {
+                const uiState = zustandStore.getState().ui;
+
+                // If we're supposed to be playing (not in any menu), go directly to GameScene
+                const inMenu = uiState.showMainMenu || uiState.showCharacterSelect ||
+                    uiState.showPowerups || uiState.showOptions ||
+                    uiState.showAchievements || uiState.showCollection ||
+                    uiState.showCredits;
+
+                // Wait a moment for visual feedback
+                this.time.delayedCall(500, () => {
+                    if (!inMenu) {
+                        // Start the game directly
+                        this.scene.start('GameScene');
+                    } else {
+                        // We're in a menu state, but the MainMenuScene is gone
+                        // Let the React UI handle this - just stay in PreloadScene
+                        // and wait for the user to click "Play" in the React UI
+
+                        // Optionally, show a "Click to Play" message
+                        if (this.loadingText) {
+                            this.loadingText.setText('Click Play to begin!');
+                        }
+                    }
+                });
+            } else {
+                // Fallback if store is unavailable
+                this.time.delayedCall(500, () => {
+                    this.scene.start('GameScene');
+                });
+            }
+        });
     }
 
     create() {
-        // Move to the main menu scene when preloading is complete
-        this.scene.start('MainMenuScene');
+        // This is intentionally empty as we transition to MainMenuScene in the 'complete' event
     }
 
-    private createLoadingBar() {
+    private createLoadingUI() {
+        // Create loading text
+        this.loadingText = this.add.text(
+            this.cameras.main.width / 2,
+            this.cameras.main.height / 2 - 50,
+            'Loading...',
+            {
+                font: 'bold 24px Arial',
+                color: '#ffffff'
+            }
+        ).setOrigin(0.5);
+
         // Create loading bar background
         this.loadingBar = this.add.graphics();
         this.loadingBar.fillStyle(0x222222, 0.8);
         this.loadingBar.fillRect(
             this.cameras.main.width / 4,
-            this.cameras.main.height / 2 - 16,
+            this.cameras.main.height / 2,
             this.cameras.main.width / 2,
-            32
+            30
         );
 
         // Create progress bar
@@ -70,42 +136,53 @@ export default class PreloadScene extends Phaser.Scene {
     private updateProgressBar(value: number) {
         if (!this.progressBar) return;
 
+        // Clear the previous progress
         this.progressBar.clear();
-        this.progressBar.fillStyle(0x00ff00, 1);
+
+        // Draw new progress
+        this.progressBar.fillStyle(0x9966ff, 1);
         this.progressBar.fillRect(
-            this.cameras.main.width / 4 + 4,
-            this.cameras.main.height / 2 - 12,
-            (this.cameras.main.width / 2 - 8) * value,
-            24
+            this.cameras.main.width / 4 + 5,
+            this.cameras.main.height / 2 + 5,
+            (this.cameras.main.width / 2 - 10) * value,
+            20
         );
+
+        // Update loading text with percentage
+        if (this.loadingText) {
+            this.loadingText.setText(`Loading... ${Math.floor(value * 100)}%`);
+        }
     }
 
-    private loadAssets() {
-        // Player assets
-        this.load.image('player', '/assets/sprites/characters/player.png');
+    private loadSoundEffects() {
+        // Player related sounds
+        this.load.audio('player-damage', '/assets/audio/sfx/player-damage.wav');
+        this.load.audio('level-up', '/assets/audio/sfx/level-up.wav');
+        this.load.audio('game-over', '/assets/audio/sfx/game-over.wav');
+        this.load.audio('dodge', '/assets/audio/sfx/dodge.wav');
 
-        // Enemy assets
-        this.load.image('enemy-basic', '/assets/sprites/enemies/enemy-basic.png');
-        this.load.image('enemy-fast', '/assets/sprites/enemies/enemy-fast.png');
-        this.load.image('enemy-tank', '/assets/sprites/enemies/enemy-tank.png');
-        this.load.image('enemy-ranged', '/assets/sprites/enemies/enemy-ranged.png');
+        // Weapon related sounds
+        this.load.audio('shoot', '/assets/audio/sfx/shoot.wav');
+        this.load.audio('hit', '/assets/audio/sfx/hit.wav');
 
-        // Weapon assets
-        this.load.image('projectile', '/assets/sprites/weapons/projectile.png');
+        // Enemy related sounds
+        this.load.audio('enemy-death', '/assets/audio/sfx/enemy-death.wav');
+        this.load.audio('boss-appear', '/assets/audio/sfx/boss-appear.wav');
+        this.load.audio('boss-death', '/assets/audio/sfx/boss-death.wav');
+        this.load.audio('summon', '/assets/audio/sfx/summon.wav');
 
-        // UI assets
-        this.load.image('button', '/assets/ui/button.png');
-        this.load.image('health-bar', '/assets/ui/health-bar.png');
-        this.load.image('exp-bar', '/assets/ui/exp-bar.png');
+        // Item related sounds
+        this.load.audio('coin-pickup', '/assets/audio/sfx/coin-pickup.wav');
+        this.load.audio('exp-pickup', '/assets/audio/sfx/exp-pickup.wav');
 
-        // Audio assets
-        this.load.audio('shoot', '/assets/audio/sfx/shoot.mp3');
-        this.load.audio('hit', '/assets/audio/sfx/hit.mp3');
-        this.load.audio('enemy-death', '/assets/audio/sfx/enemy-death.mp3');
-        this.load.audio('player-damage', '/assets/audio/sfx/player-damage.mp3');
-        this.load.audio('level-up', '/assets/audio/sfx/level-up.mp3');
-        this.load.audio('game-over', '/assets/audio/sfx/game-over.mp3');
-        this.load.audio('music-main', '/assets/audio/music/main-theme.mp3');
+        // UI related sounds
+        this.load.audio('button-click', '/assets/audio/sfx/button-click.wav');
+        this.load.audio('upgrade-select', '/assets/audio/sfx/upgrade-select.wav');
+    }
+
+    private loadMusic() {
+        this.load.audio('main-menu', '/assets/audio/music/main-menu.mp3');
         this.load.audio('music-battle', '/assets/audio/music/battle.mp3');
+        this.load.audio('music-boss', '/assets/audio/music/boss.mp3');
     }
 }
