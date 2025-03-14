@@ -340,11 +340,11 @@ export default class GameScene extends Phaser.Scene {
             this
         );
 
-        // Set up collision detection for pickups
+        // Set up collision detection for pickups - with explicit type casting
         this.physics.add.overlap(
             this.player,
             this.coins,
-            this.collectCoin,
+            this.collectCoin as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
             undefined,
             this
         );
@@ -352,7 +352,7 @@ export default class GameScene extends Phaser.Scene {
         this.physics.add.overlap(
             this.player,
             this.experience,
-            this.collectExperience,
+            this.collectExperience as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
             undefined,
             this
         );
@@ -1176,11 +1176,22 @@ export default class GameScene extends Phaser.Scene {
     }
 
     private collectExperience(
-        player: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
-        expGem: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile
+        player: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile,
+        expGem: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile
     ) {
-        // Get the sprite references
-        const expSprite = expGem as Phaser.GameObjects.Sprite;
+        // Get the sprite reference - handle all possible types
+        let expSprite: Phaser.GameObjects.Sprite;
+
+        if (expGem instanceof Phaser.Physics.Arcade.Body) {
+            expSprite = expGem.gameObject as Phaser.GameObjects.Sprite;
+        } else if (expGem instanceof Phaser.Physics.Arcade.StaticBody) {
+            expSprite = expGem.gameObject as Phaser.GameObjects.Sprite;
+        } else if ('body' in expGem) {
+            expSprite = expGem as Phaser.GameObjects.Sprite;
+        } else {
+            // Handle tile or other cases if needed
+            return;
+        }
 
         // Get the value
         const value = expSprite.getData('value') || 5;
@@ -1209,8 +1220,19 @@ export default class GameScene extends Phaser.Scene {
         player: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile,
         coin: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | Phaser.Tilemaps.Tile
     ) {
-        // Get the sprite reference
-        const coinSprite = coin as Phaser.GameObjects.Sprite;
+        // Get the sprite reference - handle all possible types
+        let coinSprite: Phaser.GameObjects.Sprite;
+
+        if (coin instanceof Phaser.Physics.Arcade.Body) {
+            coinSprite = coin.gameObject as Phaser.GameObjects.Sprite;
+        } else if (coin instanceof Phaser.Physics.Arcade.StaticBody) {
+            coinSprite = coin.gameObject as Phaser.GameObjects.Sprite;
+        } else if ('body' in coin) {
+            coinSprite = coin as Phaser.GameObjects.Sprite;
+        } else {
+            // Handle tile or other cases if needed
+            return;
+        }
 
         // Get the value
         const value = coinSprite.getData('value') || 1;
