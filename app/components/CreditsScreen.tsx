@@ -7,7 +7,7 @@ export default function CreditsScreen() {
 
     return (
         <div className="fixed inset-0 bg-opacity-80 flex items-center justify-center z-40 bg-gray-900">
-            <div className="bg-gray-800 p-6 rounded-lg max-w-5xl w-full h-[500px] text-white">
+            <div className="bg-gray-800 p-6 rounded-lg max-w-5xl w-full min-h-[500px] text-white">
                 <div className="flex justify-between items-center mb-4">
                     <button
                         className="bg-blue-600 hover:bg-blue-700 transition-colors text-white px-4 py-1 rounded"

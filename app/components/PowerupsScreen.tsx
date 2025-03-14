@@ -37,7 +37,7 @@ export default function PowerupsScreen() {
 
     return (
         <div className="fixed inset-0 bg-opacity-80 flex items-center justify-center z-40 bg-gray-900">
-            <div className="bg-gray-800 p-6 rounded-lg max-w-5xl w-full h-[500px] text-white">
+            <div className="bg-gray-800 p-6 rounded-lg max-w-5xl w-full min-h-[500px] text-white">
                 <div className="flex justify-between items-center mb-4">
                     <button
                         className="bg-blue-600 hover:bg-blue-700 transition-colors text-white px-4 py-1 rounded"
@@ -54,7 +54,7 @@ export default function PowerupsScreen() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-3 md:grid-cols-3 gap-4 h-[350px] overflow-y-auto p-2">
+                <div className="grid grid-cols-3 md:grid-cols-3 gap-4 overflow-y-auto p-2">
                     {POWERUP_TYPES.map((powerup) => {
                         const isUnlocked = !powerup.unlockCondition || unlocked.powerups.includes(powerup.id);
                         const level = powerups[powerup.id] || 0;
