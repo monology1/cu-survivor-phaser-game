@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
-import { create } from 'zustand';
+import {create} from 'zustand';
+import {initAudioOnUserInteraction, setVolumeSafe} from "@/game/utils/audioHelpers";
 
 export default class BootScene extends Phaser.Scene {
     constructor() {
@@ -36,18 +37,36 @@ export default class BootScene extends Phaser.Scene {
         // Set up any initial game configurations
         this.scale.setGameSize(800, 600);
 
-        // You can add more configuration here
+        // Initialize audio system safely
+        initAudioOnUserInteraction(this);
 
         // Access the Zustand store in Phaser
         const zustandStore = this.game.registry.get('zustandStore');
         if (zustandStore) {
-            // You can subscribe to state changes here if needed
+            // Get current settings
+            const currentSettings = zustandStore.getState().settings;
+
+            // Set initial volume levels if available
+            if (currentSettings) {
+                const soundVolume = typeof currentSettings.soundVolume === 'number'
+                    ? currentSettings.soundVolume
+                    : 0.7;
+
+                // Use our safe volume setter
+                setVolumeSafe(this, soundVolume);
+            }
+
+            // Set up subscription with safer implementation
             const unsubscribe = zustandStore.subscribe(
                 (state: any) => {
-                    // React to state changes if needed
-                    // For example, handle volume changes
-                    if (this.sound && this.sound.mute !== !state.settings.soundVolume) {
-                        this.sound.mute = !state.settings.soundVolume;
+                    // Only update sound if settings exist
+                    if (state.settings) {
+                        const newVolume = typeof state.settings.soundVolume === 'number'
+                            ? state.settings.soundVolume
+                            : 0.7;
+
+                        // Use our safe volume setter
+                        setVolumeSafe(this, newVolume);
                     }
                 }
             );

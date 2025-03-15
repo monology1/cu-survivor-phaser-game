@@ -76,6 +76,9 @@ export default class GameScene extends Phaser.Scene {
     }
 
     create() {
+        // Create map background first (so it's behind everything else)
+        this.createMap();
+
         // Initialize game objects
         this.createPlayer();
         this.createPlayerRange();
@@ -154,6 +157,27 @@ export default class GameScene extends Phaser.Scene {
         } catch (error) {
             console.warn('Battle music could not be played:', error);
         }
+    }
+
+    private createMap() {
+        // Get the map dimensions (assuming standard map size, adjust as needed)
+        const mapWidth = 2000;  // Adjust to your map's actual width
+        const mapHeight = 2000; // Adjust to your map's actual height
+
+        // Create map image
+        const map = this.add.image(0, 0, 'game-map-01');
+
+        // Set the origin to top-left corner for easier positioning
+        map.setOrigin(0, 0);
+
+        // Make sure the map is behind everything else
+        map.setDepth(-10);
+
+        // Set the world bounds based on the map size
+        this.physics.world.setBounds(0, 0, mapWidth, mapHeight);
+
+        // Enable camera to follow player
+        this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
     }
 
     private createPlayer() {
@@ -1103,7 +1127,7 @@ export default class GameScene extends Phaser.Scene {
             if (isBoss) {
                 this.sound.play('boss-death', { volume: 0.6 });
             } else {
-                this.sound.play('enemy-death', { volume: 0.3 });
+                // this.sound.play('enemy-death', { volume: 0.3 });
             }
         } catch (error) {
             console.warn('Could not play death sound:', error);
