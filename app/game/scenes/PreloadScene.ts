@@ -29,6 +29,9 @@ export default class PreloadScene extends Phaser.Scene {
         this.load.image('exp-bar', '/assets/ui/exp-bar.png');
         this.load.image('button', '/assets/ui/button.png');
 
+        // map
+        this.load.image('game-map-01', '/assets/maps/map_01.png');
+
         // Load player characters
         Object.values(CHARACTER_TYPES).forEach(character => {
             this.load.image(`character-${character.id}`, `/assets/characters/${character.id}.png`);
@@ -166,7 +169,7 @@ export default class PreloadScene extends Phaser.Scene {
         this.load.audio('hit', '/assets/audio/sfx/hit.wav');
 
         // Enemy related sounds
-        this.load.audio('enemy-death', '/assets/audio/sfx/enemy-death.wav');
+        // this.load.audio('enemy-death', '/assets/audio/sfx/enemy-death.wav');
         this.load.audio('boss-appear', '/assets/audio/sfx/boss-appear.wav');
         this.load.audio('boss-death', '/assets/audio/sfx/boss-death.wav');
         this.load.audio('summon', '/assets/audio/sfx/summon.wav');
