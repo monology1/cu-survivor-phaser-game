@@ -87,13 +87,13 @@ export default class GameScene extends Phaser.Scene {
 
         // Create UI
         this.createUI();
+        this.setupBg();
 
         // Setup collisions
         this.setupCollisions();
 
         // Start the game
         this.startGame();
-
         // Handle music
         this.setupMusic();
 
@@ -101,9 +101,15 @@ export default class GameScene extends Phaser.Scene {
         this.gameStartTime = this.time.now;
     }
 
+    setupBg(){
+        this.add.image(0, 0, 'game-background')
+            .setOrigin(0)
+            .setDisplaySize(this.cameras.main.width, this.cameras.main.height)
+            .setToBack();
+    }
+
     update(time: number, delta: number) {
         if (!this.player) return;
-
         this.updatePlayer(delta);
         this.updatePlayerRange();
 
@@ -158,13 +164,14 @@ export default class GameScene extends Phaser.Scene {
         this.player = this.physics.add.sprite(
             this.cameras.main.width / 2,
             this.cameras.main.height / 2,
-            `character-${characterId}`
+            `${characterId}`
         );
 
         if (!this.player) return;
 
-        this.player.setCollideWorldBounds(true);
-        this.player.setDepth(10);
+        this.player.setCollideWorldBounds(true)
+            .setScale(2.4)
+            .setDepth(10);
 
         // Get stored player stats
         const playerStats = store?.getState().currentRun.playerStats || {
@@ -307,7 +314,6 @@ export default class GameScene extends Phaser.Scene {
 
         // Get weapons from player data
         const weapons = this.player?.getData('weapons') || ['BASIC'];
-
         // Create icons
         weapons.forEach((weaponType: string, index: number) => {
             const icon = this.add.sprite(
@@ -605,11 +611,14 @@ export default class GameScene extends Phaser.Scene {
         // Scale difficulty based on wave number
         const waveScaleFactor = 1 + (this.waveNumber - 1) * 0.2;
 
+        const size = 40;
         // Set up enemy appearance
-        enemy.setActive(true).setVisible(true);
-        enemy.setTexture(enemyConfig.sprite);
-        enemy.setScale(enemyConfig.scale);
-        enemy.setTint(enemyConfig.tint);
+        enemy.setActive(true).setVisible(true)
+            .setTexture(enemyConfig.sprite)
+            .setScale(enemyConfig.scale)
+            .setSize(size,size)
+            .setDisplaySize(size,size)
+            .setTint(enemyConfig.tint)
 
         // Calculate values
         const healthValue = Math.floor(enemyConfig.health * waveScaleFactor);
@@ -1130,10 +1139,13 @@ export default class GameScene extends Phaser.Scene {
 
         if (!expGem) return;
 
+        const size = 30;
         // Set up experience gem
-        expGem.setActive(true).setVisible(true);
-        expGem.setScale(0.8);
-        expGem.setData('value', value);
+        expGem
+            .setActive(true).setVisible(true)
+            .setDisplaySize(size,size)
+            .setSize(size,size)
+            .setData('value', value);
 
         // Add a small random offset so multiple drops don't stack exactly
         expGem.x += Phaser.Math.Between(-10, 10);
@@ -1142,8 +1154,8 @@ export default class GameScene extends Phaser.Scene {
         // Add a slight pulsing animation
         this.tweens.add({
             targets: expGem,
-            scale: 1,
-            duration: 500,
+            scale: 0.1,
+            duration: 1200,
             yoyo: true,
             repeat: -1
         });
@@ -1154,7 +1166,7 @@ export default class GameScene extends Phaser.Scene {
 
         // Get coin from pool
         const coin = this.coins.get(x, y, 'coin') as Phaser.Physics.Arcade.Sprite;
-
+        console.log(coin)
         if (!coin) return;
 
         // Set up coin

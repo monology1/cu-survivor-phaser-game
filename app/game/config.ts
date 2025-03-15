@@ -36,7 +36,7 @@ export const CHARACTER_TYPES: Record<string, CharacterConfig> = {
     BILL: {
         id: 'bill',
         name: 'Bill',
-        sprite: 'character-bill',
+        sprite: 'bill',
         description: 'A pair of 50-caliber Colts. Increases critical damage by up to 75%.',
         baseStats: {
             health: 80,
@@ -45,7 +45,7 @@ export const CHARACTER_TYPES: Record<string, CharacterConfig> = {
             armor: 0,
             power: 200,
             critical: 20,
-            speed: 85,
+            speed: 165,
             projectiles: 2
         },
         startingWeapon: 'BASIC'
@@ -278,7 +278,7 @@ export const WEAPON_TYPES: Record<string, WeaponConfig> = {
         fireRate: 500,
         range: 300,
         projectileSpeed: 400,
-        projectileScale: 1,
+        projectileScale: 2,
         sprite: 'weapon-basic',
         projectileSprite: 'projectile-basic'
     },

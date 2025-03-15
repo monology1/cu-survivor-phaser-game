@@ -20,29 +20,29 @@ export default class PreloadScene extends Phaser.Scene {
 
         // Load background assets
         this.load.image('menu-background', '/assets/ui/main-menu-background.png');
-        this.load.image('game-background', '/assets/maps/game-background.png');
+        this.load.image('game-background', '/assets/ui/map_01.png');
 
         // Load UI assets
         this.load.image('coin', '/assets/items/coin_01.png');
-        this.load.image('experience', '/assets/items/experience.png');
+        this.load.image('experience', '/assets/items/exp_gem.png');
         this.load.image('health-bar', '/assets/ui/health-bar.png');
         this.load.image('exp-bar', '/assets/ui/exp-bar.png');
         this.load.image('button', '/assets/ui/button.png');
 
         // Load player characters
         Object.values(CHARACTER_TYPES).forEach(character => {
-            this.load.image(`character-${character.id}`, `/assets/characters/${character.id}.png`);
+            this.load.image(character.sprite, `/assets/players/${character.id}.png`);
         });
 
         // Load enemies
         Object.values(ENEMY_TYPES).forEach(enemy => {
-            this.load.image(enemy.sprite, `/assets/enemies/${enemy.sprite.replace('enemy-', '')}.png`);
+            this.load.image(enemy.sprite, `/assets/enemies/${enemy.sprite}.png`);
         });
 
         // Load weapons and projectiles
         Object.values(WEAPON_TYPES).forEach(weapon => {
-            this.load.image(weapon.sprite, `/assets/weapons/${weapon.sprite.replace('weapon-', '')}.png`);
-            this.load.image(weapon.projectileSprite, `/assets/weapons/${weapon.projectileSprite.replace('projectile-', '')}.png`);
+            this.load.image(weapon.sprite, `/assets/weapons/${weapon.projectileSprite}.png`);
+            this.load.image(weapon.projectileSprite, `/assets/weapons/${weapon.projectileSprite}.png`);
         });
 
         // Load powerups

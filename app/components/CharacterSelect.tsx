@@ -9,6 +9,7 @@ export default function CharacterSelect() {
     const [selectedChar, setSelectedChar] = useState('bill');
 
     const handleSelectCharacter = (charId: string) => {
+        console.log(charId);
         setSelectedChar(charId);
     };
 
@@ -152,7 +153,7 @@ export default function CharacterSelect() {
                                         <div className="aspect-square flex items-center justify-center mb-2">
                                             <div className="relative w-16 h-16">
                                                 <img
-                                                    src={`/assets/characters/${character.id}.png`}
+                                                    src={`/assets/players/${character.id}.png`}
                                                     alt={character.name}
                                                     className="w-full h-full object-contain"
                                                 />
@@ -175,7 +176,7 @@ export default function CharacterSelect() {
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 bg-gray-800 rounded-md flex items-center justify-center">
                                     <img
-                                        src={`/assets/characters/${selectedChar}.png`}
+                                        src={`/assets/players/${selectedChar}.png`}
                                         alt={selectedCharConfig?.name}
                                         className="w-8 h-8 object-contain"
                                     />
