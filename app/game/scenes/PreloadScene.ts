@@ -166,7 +166,7 @@ export default class PreloadScene extends Phaser.Scene {
 
         // Weapon related sounds
         this.load.audio('shoot', '/assets/audio/sfx/shoot.wav');
-        this.load.audio('hit', '/assets/audio/sfx/hit.wav');
+        this.load.audio('hit', '/assets/audio/sfx/hit21.mp3.flac');
 
         // Enemy related sounds
         // this.load.audio('enemy-death', '/assets/audio/sfx/enemy-death.wav');

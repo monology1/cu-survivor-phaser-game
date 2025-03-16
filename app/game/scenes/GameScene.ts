@@ -71,6 +71,10 @@ export default class GameScene extends Phaser.Scene {
     private weaponIcons: Phaser.GameObjects.Sprite[] = [];
     private coinCounter?: Phaser.GameObjects.Text;
 
+    // pause state property
+    private isPaused = false;
+    private pauseMenu?: Phaser.GameObjects.Container;
+
     constructor() {
         super('GameScene');
     }
@@ -100,15 +104,18 @@ export default class GameScene extends Phaser.Scene {
         // Handle music
         this.setupMusic();
 
+        this.input?.keyboard?.on('keydown-ESC', this.togglePause, this);
+
         // Record start time
         this.gameStartTime = this.time.now;
     }
 
-    setupBg(){
-        this.add.image(0, 0, 'game-background')
+    setupBg() {
+        const bg = this.add.image(0, 0, 'game-background')
             .setOrigin(0)
-            .setDisplaySize(this.cameras.main.width, this.cameras.main.height)
-            .setToBack();
+            .setDisplaySize(this.cameras.main.width, this.cameras.main.height);
+
+        this.children.sendToBack(bg);
     }
 
     update(time: number, delta: number) {
@@ -1444,5 +1451,87 @@ export default class GameScene extends Phaser.Scene {
                 maxHealth: this.player.getData('maxHealth')
             });
         }
+    }
+
+    private togglePause() {
+        this.isPaused = !this.isPaused;
+
+        if (this.isPaused) {
+            // Create pause menu but DON'T pause the scene
+            this.createPauseMenu();
+
+            // Pause physics instead
+            this.physics.pause();
+
+            // Stop any ongoing tweens
+            this.tweens.pauseAll();
+
+            // Optional: darken the game a bit
+            const darkOverlay = this.add.rectangle(
+                0, 0,
+                this.cameras.main.width * 2,
+                this.cameras.main.height * 2,
+                0x000000, 0.3
+            ).setOrigin(0).setDepth(900);
+
+            this.pauseMenu?.add(darkOverlay);
+            darkOverlay.setPosition(-this.cameras.main.width, -this.cameras.main.height);
+        } else {
+            // Resume game
+            this.physics.resume();
+            this.tweens.resumeAll();
+
+            // Remove the pause menu
+            if (this.pauseMenu) {
+                this.pauseMenu.destroy();
+                this.pauseMenu = undefined;
+            }
+        }
+    }
+
+    private createPauseMenu() {
+        // Create a container for all pause menu elements
+        this.pauseMenu = this.add.container(this.cameras.main.width / 2, this.cameras.main.height / 2);
+
+        // Semi-transparent background
+        const bg = this.add.rectangle(0, 0, 400, 300, 0x000000, 0.7);
+
+        // Menu title
+        const title = this.add.text(0, -100, 'GAME PAUSED', {
+            font: 'bold 32px Arial',
+            color: '#ffffff'
+        }).setOrigin(0.5);
+
+        // Resume button
+        const resumeButton = this.add.text(0, -20, 'Resume Game', {
+            font: '24px Arial',
+            color: '#ffffff'
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+        resumeButton.on('pointerdown', () => this.togglePause());
+
+        // Options button
+        const optionsButton = this.add.text(0, 40, 'Options', {
+            font: '24px Arial',
+            color: '#ffffff'
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+        // Quit button
+        const quitButton = this.add.text(0, 100, 'Quit to Menu', {
+            font: '24px Arial',
+            color: '#ffffff'
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+        quitButton.on('pointerdown', () => {
+            // Clean up and return to menu
+            this.sound.stopAll();
+            this.scene.start('MainMenuScene');
+        });
+
+        // Add all elements to the container
+        this.pauseMenu.add([bg, title, resumeButton, optionsButton, quitButton]);
+
+        // Ensure the pause menu stays on top
+        this.pauseMenu.setDepth(1000);
     }
 }
