@@ -64,6 +64,7 @@ export default class GameScene extends Phaser.Scene {
 
     // UI elements
     private scoreText?: Phaser.GameObjects.Text;
+    private enemyKilledText?: Phaser.GameObjects.Text;
     private waveText?: Phaser.GameObjects.Text;
     private timerText?: Phaser.GameObjects.Text;
     private healthBar?: Phaser.GameObjects.Graphics;
@@ -110,12 +111,24 @@ export default class GameScene extends Phaser.Scene {
         this.gameStartTime = this.time.now;
     }
 
-    setupBg() {
+    setupBg(){
         const bg = this.add.image(0, 0, 'game-background')
             .setOrigin(0)
-            .setDisplaySize(this.cameras.main.width, this.cameras.main.height);
+            .setDisplaySize(this.cameras.main.width, this.cameras.main.height)
+            .setToBack();
+        // Get the map dimensions (assuming standard map size, adjust as needed)
+        const mapWidth = 2000;  // Adjust to your map's actual width
+        const mapHeight = 2000; // Adjust to your map's actual height
+        // Set the origin to top-left corner for easier positioning
+        bg.setOrigin(0, 0);
+        // Make sure the map is behind everything else
+        bg.setDepth(-10);
 
-        this.children.sendToBack(bg);
+        // Set the world bounds based on the map size
+        this.physics.world.setBounds(0, 0, mapWidth, mapHeight);
+
+        // Enable camera to follow player
+        this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
     }
 
     update(time: number, delta: number) {
@@ -298,6 +311,11 @@ export default class GameScene extends Phaser.Scene {
             font: '24px Arial',
             color: '#ffffff'
         });
+
+        this.enemyKilledText = this.add.text(150, 16, 'Kills: 0', {
+            font: '24px Arial',
+            color: '#ffffff'
+        })
 
         this.waveText = this.add.text(
             this.cameras.main.width - 16,
@@ -599,8 +617,7 @@ export default class GameScene extends Phaser.Scene {
         // Get current wave config
         const waveConfig = this.currentWaveConfig;
         if (!waveConfig) return;
-
-        // Calculate spawn interval
+        // Calculate spawn interval //2000 for wave 1
         const spawnInterval = waveConfig.spawnInterval;
 
         // Spawn enemy if enough time has passed and haven't reached total enemies for wave
@@ -919,6 +936,7 @@ export default class GameScene extends Phaser.Scene {
         } else {
             projectileSprite = projectile as Phaser.GameObjects.Sprite;
         }
+        projectileSprite.setActive(false).setVisible(false);
 
         if (enemy instanceof Phaser.Physics.Arcade.Body) {
             enemySprite = enemy.gameObject as Phaser.GameObjects.Sprite;
@@ -1349,6 +1367,12 @@ export default class GameScene extends Phaser.Scene {
     private updateScoreText() {
         if (this.scoreText) {
             this.scoreText.setText(`Score: ${this.score}`);
+        }
+    }
+
+    private updateKillText() {
+        if(this.enemyKilledText) {
+            this.enemyKilledText.setText(`Kills: ${this.enemiesKilled}`);
         }
     }
 
