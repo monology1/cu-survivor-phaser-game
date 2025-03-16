@@ -1100,6 +1100,7 @@ export default class GameScene extends Phaser.Scene {
         } else {
             enemySprite = enemy as Phaser.GameObjects.Sprite;
         }
+        enemySprite.setActive(false).setVisible(false)
 
         // Get enemy data
         const points = enemySprite.getData('points') || 10;
@@ -1134,13 +1135,13 @@ export default class GameScene extends Phaser.Scene {
         }
 
         // Death animation
-        this.tweens.add({
-            targets: enemySprite,
-            alpha: 0,
-            scale: enemySprite.scale * 1.5,
-            duration: 200,
-            onComplete: () => enemySprite.setActive(false).setVisible(false)
-        });
+        // this.tweens.add({
+        //     targets: enemySprite,
+        //     alpha: 0,
+        //     scale: enemySprite.scale * 1.5,
+        //     duration: 200,
+        //     onComplete: () => enemySprite.setActive(false).setVisible(false)
+        // });
 
         // Update store with kill
         const store = this.game.registry.get('zustandStore');

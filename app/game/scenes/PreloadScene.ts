@@ -20,7 +20,7 @@ export default class PreloadScene extends Phaser.Scene {
 
         // Load background assets
         this.load.image('menu-background', '/assets/ui/main-menu-background.png');
-        this.load.image('game-background', '/assets/ui/map_01.png');
+        this.load.image('game-background', '/assets/maps/map_01.png');
 
         // Load UI assets
         this.load.image('coin', '/assets/items/coin_01.png');
@@ -30,7 +30,7 @@ export default class PreloadScene extends Phaser.Scene {
         this.load.image('button', '/assets/ui/button.png');
 
         // map
-        this.load.image('game-map-01', '/assets/maps/map_01.png');
+        // this.load.image('game-map-01', '/assets/maps/map_01.png');
 
         // Load player characters
         Object.values(CHARACTER_TYPES).forEach(character => {
